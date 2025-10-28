@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Hypergraph RAG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1f2937; /* Dark background */
+            color: #E5E7EB; /* Light text */
+        }
+
+        .step {
+            display: none; /* Default state: hidden */
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            min-height: 40vh; /* Ensure minimum height for vertical centering */
+            width: 100%; /* Ensure steps take full width */
+            /* Flex properties are defined here but only applied when display is flex */
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .step.active {
+            display: flex; /* Active state: visible AND centered */
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .chunk, .node-list, .hyperedge, .canonical-list, .community, .db-item {
+            border: 2px solid #4f46e5; /* Indigo border */
+            background-color: #374151; /* Gray-700 */
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem;
+            transition: all 0.3s ease-in-out;
+            min-height: 100px;
+        }
+        
+        .retriever-box {
+            border: 2px solid #4f46e5; /* Indigo border */
+            background-color: #374151; /* Gray-700 */
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem;
+            transition: all 0.3s ease-in-out;
+        }
+
+
+        .chunk:hover, .node-list:hover, .hyperedge:hover, .canonical-list:hover, .community:hover, .db-item:hover, .retriever-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Utility class for JS toggling */
+        .hidden {
+            display: none;
+        }
+
+        /* Step-specific animations */
+        .step-1-chunk {
+            animation: fadeInScale 0.5s ease-out forwards;
+        }
+
+        .step-2-nodes {
+            animation: slideInRight 0.5s ease-out forwards;
+        }
+        
+        .step-3-edge {
+            animation: drawBorder 0.8s ease-out forwards;
+            border-color: transparent;
+        }
+        
+        .step-4-canonical {
+             animation: pulseFadeIn 0.7s ease-out forwards;
+        }
+
+        .step-5-community {
+            animation: pulseFadeIn 0.7s ease-out forwards;
+        }
+
+        .step-6-db {
+             animation: slideInUp 0.6s ease-out forwards;
+        }
+
+        /* Step 7 static styles */
+        .retriever-item,
+        .retrieval-sub-step-list li,
+        .arrow-down,
+        .arrow-right {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .progress-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #6b7280; /* Gray-500 */
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .progress-dot.active {
+            background-color: #818cf8; /* Indigo-400 */
+            transform: scale(1.25);
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes drawBorder {
+            from { border-color: transparent; }
+            to { border-color: #a78bfa; } /* Violet-400 */
+        }
+        
+        @keyframes pulseFadeIn {
+            0% { opacity: 0; transform: scale(0.9); }
+            50% { opacity: 0.8; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 sm:p-6 md:p-12">
+
+    <div class="w-full max-w-7xl bg-gray-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="min-height: 80vh;">
+        
+        <!-- Header --><header class="p-6 border-b border-gray-700">
+            <h1 class="text-2xl md:text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">
+                Case Study: Hypergraph RAG Construction
+            </h1>
+        </header>
+
+        <!-- Main Content Stage --><main id="animation-stage" class="flex-grow p-6 md:p-10 flex items-center justify-center">
+            
+            <!-- Step 0: Title Slide --><div id="step-0" class="step active text-center">
+                <div class="max-w-3xl mx-auto">
+                    <h2 class="text-4xl font-bold mb-4">Understanding Hypergraph RAG</h2>
+                    <p class="text-xl text-gray-300 mb-8">An animated walk-through of the 6-step graph construction and retrieval process.</p>
+                    <button onclick="nextStep()" class="px-8 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+                        Start Animation
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 1: Input Document and Chunking --><div id="step-1" class="step">
+                <div class="max-w-5xl mx-auto w-full">
+                    <h2 class="text-xl font-bold mb-4 text-center">Step 1: Input Document and Chunking</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="chunk step-1-chunk">
+                            <strong class="text-indigo-300">Chunk ID: C1</strong>
+                            <p class="mt-2 text-sm">The outage in Dallas occurred due to packet loss in the 5G core network. The router at Node-21 malfunctioned after a firmware update.</p>
+                        </div>
+                        <div class="chunk step-1-chunk" style="animation-delay: 0.1s;">
+                            <strong class="text-indigo-300">Chunk ID: C2</strong>
+                            <p class="mt-2 text-sm">The firmware update introduced a configuration bug affecting routers in multiple regions. The bug caused frequent packet drops in the core network.</p>
+                        </div>
+                        <div class="chunk step-1-chunk" style="animation-delay: 0.2s;">
+                            <strong class="text-indigo-300">Chunk ID: C3</strong>
+                            <p class="mt-2 text-sm">A rollback plan was implemented to restore normal traffic flow. Engineers replaced the faulty firmware on routers and restarted the 5G core systems.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 2: Node (Entity) Extraction --><div id="step-2" class="step">
+                <div class="max-w-5xl mx-auto w-full">
+                    <h2 class="text-xl font-bold mb-4 text-center">Step 2: Node (Entity) Extraction</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                        <!-- C1 --><div class="chunk">
+                            <strong class="text-indigo-300">Chunk ID: C1</strong>
+                            <p class="mt-2 text-sm">The outage in Dallas occurred due to packet loss in the 5G core network. The router at Node-21 malfunctioned after a firmware update.</p>
+                        </div>
+                        <div class="flex items-center justify-center text-3xl text-indigo-400">&rarr;</div>
+                        <div class="node-list step-2-nodes">
+                            <strong class="text-indigo-300">Extracted Nodes (Entities)</strong>
+                            <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                                <li>Dallas</li>
+                                <li>packet loss</li>
+                                <li>5G core network</li>
+                                <li>Node-21</li>
+                                <li>firmware update</li>
+                            </ul>
+                        </div>
+                        <!-- C2 --><div class="chunk">
+                            <strong class="text-indigo-300">Chunk ID: C2</strong>
+                            <p class="mt-2 text-sm">The firmware update introduced a configuration bug affecting routers in multiple regions. The bug caused frequent packet drops in the core network.</p>
+                        </div>
+                        <div class="flex items-center justify-center text-3xl text-indigo-400">&rarr;</div>
+                        <div class="node-list step-2-nodes" style="animation-delay: 0.1s;">
+                            <strong class="text-indigo-300">Extracted Nodes (Entities)</strong>
+                            <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                                <li>firmware update</li>
+                                <li>configuration bug</li>
+                                <li>packet drops</li>
+                                <li>core network</li>
+                            </ul>
+                        </div>
+                        <!-- C3 --><div class="chunk">
+                            <strong class="text-indigo-300">Chunk ID: C3</strong>
+                            <p class="mt-2 text-sm">A rollback plan was implemented to restore normal traffic flow. Engineers replaced the faulty firmware on routers and restarted the 5G core systems.</p>
+                        </div>
+                        <div class="flex items-center justify-center text-3xl text-indigo-400">&rarr;</div>
+                        <div class="node-list step-2-nodes" style="animation-delay: 0.2s;">
+                            <strong class="text-indigo-300">Extracted Nodes (Entities)</strong>
+                            <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                                <li>rollback plan</li>
+                                <li>faulty firmware</li>
+                                <li>5G core systems</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Hyperedge (Relation) Extraction --><div id="step-3" class="step">
+                <div class="max-w-5xl mx-auto w-full">
+                    <h2 class="text-xl font-bold mb-4 text-center">Step 3: Hyperedge (Relation) Extraction</h2>
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                        <!-- Row 1 -->
+                        <div class="chunk">
+                            <strong class="text-indigo-300">Chunk ID: C1</strong>
+                            <p class="mt-2 text-sm">The outage in Dallas occurred due to packet loss in the 5G core network. The router at Node-21 malfunctioned after a firmware update.</p>
+                        </div>
+                        <div class="flex items-center justify-center text-3xl text-indigo-400">&rarr;</div>
+                        <div class="hyperedge step-3-edge">
+                            <strong class="text-purple-300">Hyperedge ID: H1</strong>
+                            <p class="mt-2 text-sm"><strong class="text-gray-300">Relation Text:</strong> Outage caused by packet loss in the 5G core network after a router firmware update.</p>
+                        </div>
+                        <!-- Row 2 -->
+                        <div class="chunk">
+                            <strong class="text-indigo-300">Chunk ID: C2</strong>
+                            <p class="mt-2 text-sm">The firmware update introduced a configuration bug affecting routers in multiple regions. The bug caused frequent packet drops in the core network.</p>
+                        </div>
+                        <div class="flex items-center justify-center text-3xl text-indigo-400">&rarr;</div>
+                        <div class="hyperedge step-3-edge" style="animation-delay: 0.2s;">
+                            <strong class="text-purple-300">Hyperedge ID: H2</strong>
+                            <p class="mt-2 text-sm"><strong class="text-gray-300">Relation Text:</strong> Firmware update introduced a configuration bug causing packet drops.</p>
+                        </div>
+                        <!-- Row 3 -->
+                        <div class="chunk">
+                            <strong class="text-indigo-300">Chunk ID: C3</strong>
+                            <p class="mt-2 text-sm">A rollback plan was implemented to restore normal traffic flow. Engineers replaced the faulty firmware on routers and restarted the 5G core systems.</p>
+                        </div>
+                        <div class="flex items-center justify-center text-3xl text-indigo-400">&rarr;</div>
+                        <div class="hyperedge step-3-edge" style="animation-delay: 0.4s;">
+                            <strong class="text-purple-300">Hyperedge ID: H3</strong>
+                            <p class="mt-2 text-sm"><strong class="text-gray-300">Relation Text:</strong> Rollback plan and firmware replacement restored systems.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Canonicalization --><div id="step-4" class="step">
+                 <div class="max-w-5xl mx-auto w-full">
+                    <h2 class="text-xl font-bold mb-4 text-center">Step 4: Canonicalization (Identifying Shared Nodes)</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- From --><div class="space-y-4">
+                            <div class="node-list">
+                                <strong class="text-indigo-300">From C1</strong>
+                                <p class="text-sm">...firmware update...</p>
+                            </div>
+                            <div class="node-list">
+                                <strong class="text-indigo-300">From C2</strong>
+                                <p class="text-sm">...packet drops...</p>
+                            </div>
+                            <div class="node-list">
+                                <strong class="text-indigo-300">From C3</strong>
+                                <p class="text-sm">...faulty firmware... 5G core systems...</p>
+                            </div>
+                        </div>
+                        <!-- To --><div class="canonical-list step-4-canonical">
+                            <strong class="text-green-300">Canonical Nodes</strong>
+                            <table class="w-full mt-2 text-sm">
+                                <thead class="border-b border-gray-600">
+                                    <tr>
+                                        <th class="text-left p-2">Canonical Node</th>
+                                        <th class="text-left p-2">Appears In Chunks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2">firmware update</td>
+                                        <td class="p-2">C1, C2, C3 (as "faulty firmware")</td>
+                                    </tr>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2">packet loss</td>
+                                        <td class="p-2">C1, C2 (as "packet drops")</td>
+                                    </tr>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2">5G core network</td>
+                                        <td class="p-2">C1, C2, C3 (as "core systems")</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5: Hyperedge Linking (Community) --><div id="step-5" class="step">
+                <div class="max-w-5xl mx-auto w-full">
+                    <h2 class="text-xl font-bold mb-4 text-center">Step 5: Hyperedge Linking via Shared Nodes</h2>
+                    <div class="flex flex-col items-center">
+                        <!-- Source Chunks --><div class="flex space-x-4 mb-4">
+                            <div class="chunk text-center"><strong>C1</strong><br/><span class="text-xs">(...firmware update, packet loss...)</span></div>
+                            <div class="chunk text-center"><strong>C2</strong><br/><span class="text-xs">(...firmware update, packet loss...)</span></div>
+                            <div class="chunk text-center"><strong>C3</strong><br/><span class="text-xs">(...firmware update...)</span></div>
+                        </div>
+                        
+                        <div class="text-5xl text-purple-400 mb-4">&darr;</div>
+                        
+                        <!-- New Hyperedge --><div class="community step-5-community w-full max-w-lg">
+                            <strong class="text-purple-300">New Hyperedge: H1 (Community)</strong>
+                            <p class="mt-2 text-sm"><strong class="text-gray-300">Context Summary:</strong> "A bug in the firmware update caused packet loss..."</p>
+                            <p class="mt-2 text-xs font-mono"><strong class="text-gray-300">Metadata:</strong> {"source_chunks": ["C1", "C2", "C3"]}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Embedding & VectorDB Storage --><div id="step-6" class="step">
+                <div class="max-w-5xl mx-auto w-full">
+                    <h2 class="text-xl font-bold mb-4 text-center">Step 6: Embedding & VectorDB Storage</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <!-- From --><div class="community">
+                            <strong class="text-purple-300">Hyperedge: H1</strong>
+                            <p class="mt-2 text-sm">"A bug in the firmware update caused packet loss..."</p>
+                            <p class="mt-2 text-xs font-mono">{"source_chunks": ["C1", "C2", "C3"]}</p>
+                        </div>
+                        
+                        <!-- To --><div class="db-item step-6-db">
+                            <strong class="text-cyan-300">VectorDB Storage</strong>
+                            <table class="w-full mt-2 text-sm">
+                                <tbody>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2 font-semibold">Vector ID</td>
+                                        <td class="p-2">H1</td>
+                                    </tr>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2 font-semibold">Embedding</td>
+                                        <td class="p-2 font-mono text-xs">E1 [0.12, 0.35, ...]</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2 font-semibold">Metadata</td>
+                                        <td class="p-2 font-mono text-xs">{"source_chunks": ["C1", "C2", "C3"]}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 7: RAG Retriever --><div id="step-7" class="step">
+                <div class="w-full max-w-6xl mx-auto">
+                    <h2 class="text-xl font-bold mb-6 text-center">RAG Retriever Workflow</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+                        <!-- Left Column: User Query & Retriever Steps -->
+                        <div class="space-y-6">
+                            <!-- User Query --><div class="retriever-box !border-indigo-400 w-full">
+                                <h3 class="text-indigo-300 font-semibold mb-2">User Query</h3>
+                                <p class="mt-1 text-sm">"Why did the 5G core network experience packet loss and how was it resolved?"</p>
+                            </div>
+                            
+                            <div class="arrow-down text-4xl text-indigo-400 text-center">&darr;</div>
+
+                            <!-- Retriever Steps --><div class="retriever-box !border-purple-400 w-full">
+                                <h3 class="text-purple-300 font-semibold mb-3">Retriever Steps</h3>
+                                <ol class="list-decimal list-inside text-sm mt-2 space-y-2 retrieval-sub-step-list">
+                                    <li>Compute embedding for the query.</li>
+                                    <li>Search across all stored vectors (chunks + hyperedges + shared nodes).</li>
+                                    <li>Likely hits: <span class="font-mono text-green-300">SN1</span> (Firmware Update), <span class="font-mono text-green-300">SN3</span> (Core Network), <span class="font-mono text-purple-300">H1</span>, <span class="font-mono text-purple-300">H2</span>, <span class="font-mono text-purple-300">H3</span>.</li>
+                                    <li>Using metadata, system fetches linked chunks: <span class="font-mono text-indigo-300">C1, C2, C3</span>.</li>
+                                    <li>LLM synthesizes final answer.</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Fetched Chunks & Final Answer -->
+                        <div class="space-y-6">
+                            <!-- Vector DB -->
+                            <div class="retriever-box !border-cyan-400 w-full">
+                                <h3 class="text-cyan-300 font-semibold mb-3 text-center">Vector DB</h3>
+                                <div class="flex justify-around items-center">
+                                    <div class="text-center">
+                                        <span class="text-3xl">&rarr;</span>
+                                        <div class="retriever-box !border-green-400 !bg-gray-800 p-2 mt-2">
+                                            <h4 class="text-green-300 font-semibold">Entity(Node) Retrieval</h4>
+                                            <p class="text-xs font-mono">SN1, SN3</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-center">
+                                        <span class="text-3xl">&rarr;</span>
+                                        <div class="retriever-box !border-purple-400 !bg-gray-800 p-2 mt-2">
+                                            <h4 class="text-purple-300 font-semibold">Hyper Edges Retrieval</h4>
+                                            <p class="text-xs font-mono">H1, H2, H3</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="arrow-down text-4xl text-cyan-400 text-center mt-4">&darr;</div>
+                                <h3 class="text-indigo-300 font-semibold text-center">4. Fetched Chunks</h3>
+                                <div class="flex justify-center space-x-3 mt-2">
+                                    <div class="chunk !border-indigo-400 w-20 h-20 flex items-center justify-center">C1</div>
+                                    <div class="chunk !border-indigo-400 w-20 h-20 flex items-center justify-center">C2</div>
+                                    <div class="chunk !border-indigo-400 w-20 h-20 flex items-center justify-center">C3</div>
+                                </div>
+                            </div>
+                            
+                            <div class="arrow-down text-4xl text-indigo-400 text-center">&darr;</div>
+
+                            <!-- Final Synthesized Answer --><div class="retriever-box !border-green-400 w-full">
+                                <h3 class="text-green-300 font-semibold mb-2">5. Final Synthesized Answer</h3>
+                                <p class="mt-1 text-sm">"The firmware update introduced a configuration bug. This bug caused packet loss across the core network, leading to an outage in Dallas. A rollback plan was implemented to replace the faulty firmware and restore service."</p>
+                            </div>
+                        </div>
+                    </div>
+                     <!-- RAG Complete Message --><div class="retriever-box !border-purple-400 w-full text-center mt-8 max-w-3xl mx-auto">
+                        <p class="text-purple-300 font-semibold text-lg">&mdash; ✨ RAG Complete ✨ &mdash;</p>
+                        <p class="text-sm text-gray-400 mt-2">The graph structure allowed the retriever to find all relevant context (C1, C2, C3) from a simple query, leading to a complete answer.</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer --><footer class="p-6 border-t border-gray-700 bg-gray-800">
+            <!-- Step Description --><div id="step-description" class="text-center text-indigo-300 mb-4 h-6">
+                Welcome! Click 'Start' to begin.
+            </div>
+
+            <!-- Progress Dots --><div class="flex justify-center items-center space-x-3 mb-6">
+                <div id="dot-0" class="progress-dot active"></div>
+                <div id="dot-1" class="progress-dot"></div>
+                <div id="dot-2" class="progress-dot"></div>
+                <div id="dot-3" class="progress-dot"></div>
+                <div id="dot-4" class="progress-dot"></div>
+                <div id="dot-5" class="progress-dot"></div>
+                <div id="dot-6" class="progress-dot"></div>
+                <div id="dot-7" class="progress-dot"></div>
+            </div>
+
+            <!-- Navigation --><div class="flex justify-between items-center">
+                <button id="prev-btn" onclick="prevStep()" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg shadow transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Previous
+                </button>
+                <button id="next-btn" onclick="nextStep()" class="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-lg shadow transition-colors duration-300">
+                    Next
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        const totalSteps = 7;
+
+        const stepDescriptions = [
+            "Welcome! Click 'Start' to begin.",
+            "Step 1: Raw documents are ingested and broken into smaller chunks.",
+            "Step 2: Entities (nodes) are extracted from each chunk.",
+            "Step 3: Relationships between nodes in a chunk are extracted into hyperedges.",
+            "Step 4: Similar nodes (e.g., 'packet drops', 'packet loss') are normalized into canonical nodes.",
+            "Step 5: Chunks sharing canonical nodes are linked into a new, higher-level hyperedge (community).",
+            "Step 6: The new community hyperedge is embedded and stored in the VectorDB.",
+            "Step 7: The RAG retriever uses this graph to find all related context and synthesize an answer."
+        ];
+
+        function updateStep(newStep) {
+            // Deactivate current step
+            document.getElementById(`step-${currentStep}`).classList.remove('active');
+            document.getElementById(`dot-${currentStep}`).classList.remove('active');
+
+            // Activate new step
+            currentStep = newStep;
+            document.getElementById(`step-${currentStep}`).classList.add('active');
+            document.getElementById(`dot-${currentStep}`).classList.add('active');
+
+            // Update description
+            document.getElementById('step-description').textContent = stepDescriptions[currentStep];
+
+            // Update buttons
+            document.getElementById('prev-btn').disabled = (currentStep === 0);
+            document.getElementById('next-btn').disabled = (currentStep === totalSteps);
+            
+            if (currentStep === totalSteps) {
+                 document.getElementById('next-btn').textContent = "Restart";
+            } else if (currentStep === 0) {
+                document.getElementById('next-btn').textContent = "Start Animation";
+            } else {
+                document.getElementById('next-btn').textContent = "Next";
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                updateStep(currentStep + 1);
+            } else {
+                // Restart
+                updateStep(0);
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                updateStep(currentStep - 1);
+            }
+        }
+        
+        // Initialize first step
+        updateStep(0);
+
+    </script>
+</body>
+</html>
+
